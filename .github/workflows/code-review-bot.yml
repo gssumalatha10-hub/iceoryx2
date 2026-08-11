@@ -20,27 +20,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup git branches
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
-          git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
-          git branch -a
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-tidy clang clang-format cmake build-essential
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
       - name: Clone Code Review Agent bot
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/gssumalatha10-hub/Code-review-agent.git code-review-bot
+          git clone https://github.com/gssumalatha10-hub/Code-review-agent.git code-review-bot
 
       - name: Install dependencies
         run: |
@@ -73,15 +60,8 @@ jobs:
             --post-check \
             --post-comments \
             --generate-report \
-            --output .review-results/review-report.md || true
-
-      - name: Upload SARIF to GitHub Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: .review-results/review-results.sarif
-          wait-for-processing: true
-        continue-on-error: true
+            --output .review-results/review-report.md \
+            --upload-sarif .review-results/review-results.sarif || true
 
       - name: Upload report artifact
         uses: actions/upload-artifact@v4
