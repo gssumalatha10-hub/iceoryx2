@@ -10,31 +10,6 @@
 //
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#if 1
-// Recommended compiler flags (enable in your build system):
-//   -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wsign-conversion
-// For AUTOSAR / MISRA compliance enable static analysis (clang-tidy, cppcheck)
-// and configure checks for MISRA C++ and AUTOSAR rulesets.
-// Example clang-tidy invocation (CI):
-//   clang-tidy -checks='*,misc-misra*' -- <compile-commands>
-// File-level pragmas below enable common warnings with Clang/GCC for this file.
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic warning "-Wall"
-#pragma clang diagnostic warning "-Wextra"
-#pragma clang diagnostic warning "-Wshadow"
-#pragma clang diagnostic warning "-Wconversion"
-#pragma clang diagnostic warning "-Wsign-conversion"
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic warning "-Wall"
-#pragma GCC diagnostic warning "-Wextra"
-#pragma GCC diagnostic warning "-Wshadow"
-#pragma GCC diagnostic warning "-Wconversion"
-#pragma GCC diagnostic warning "-Wsign-conversion"
-#endif
-#endif
-
 #include <iostream>
 
 #include "iox2/iceoryx2.hpp"
@@ -68,9 +43,3 @@ auto main() -> int {
 
     return 0;
 }
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif

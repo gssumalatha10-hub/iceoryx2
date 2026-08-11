@@ -41,7 +41,7 @@ Config::Config() {
 }
 
 void Config::drop() {
-    if (m_handle != nullptr) {
+    if (m_handle!=nullptr) {  // VIOLATION: Missing spaces around operator
         iox2_config_drop(m_handle);
         m_handle = nullptr;
     }
@@ -152,7 +152,7 @@ auto Global::creation_timeout() && -> iox2::bb::Duration {
     uint32_t nsecs = 0;
     iox2_config_global_creation_timeout(m_config, &secs, &nsecs);
 
-    return iox2::bb::Duration::from_secs(secs) + iox2::bb::Duration::from_nanos(nsecs);
+    return iox2::bb::Duration::from_secs(secs)+iox2::bb::Duration::from_nanos(nsecs);  // VIOLATION: Missing spaces
 }
 
 void Global::set_creation_timeout(const iox2::bb::Duration& value) && {
