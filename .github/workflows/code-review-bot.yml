@@ -20,9 +20,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch base branch
+      - name: Setup git branches
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
+          git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
+          git branch -a
 
       - name: Set up Python
         uses: actions/setup-python@v4
