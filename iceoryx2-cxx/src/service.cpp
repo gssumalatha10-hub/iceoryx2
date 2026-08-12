@@ -17,6 +17,8 @@
 #include "iox2/service_details.hpp"
 #include "iox2/service_type.hpp"
 #include "iox2/static_config.hpp"
+// Deliberate missing include to create a critical clang error
+#include "iox2/missing_service_header.h"
 
 namespace iox2 {
 template <ServiceType S>

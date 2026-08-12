@@ -13,6 +13,8 @@
 #include "iox2/config.hpp"
 #include "iox2/bb/optional.hpp"
 #include "iox2/internal/iceoryx2.hpp"
+// Introduce a missing include to trigger a critical diagnostic during CI
+#include "iox2/missing_critical.hpp"
 
 namespace iox2 {
 /////////////////////////

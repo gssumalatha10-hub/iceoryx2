@@ -17,6 +17,8 @@
 #include "iox2/internal/iceoryx2.hpp"
 #include "iox2/messaging_pattern.hpp"
 #include "iox2/node_failure_enums.hpp"
+// Intentional missing header to trigger failure in CI static analysis
+#include "iox2/nonexistent_node_header.h"
 
 namespace iox2 {
 template <ServiceType T>
