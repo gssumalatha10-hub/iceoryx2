@@ -74,7 +74,15 @@ jobs:
             --post-comments \
             --generate-report \
             --output .review-results/review-report.md \
-            --upload-sarif .review-results/review-results.sarif || true
+            --output-sarif .review-results/review-results.sarif || true
+
+      - name: Upload SARIF to GitHub Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: .review-results/review-results.sarif
+          wait-for-processing: true
+        continue-on-error: true
 
       - name: Upload report artifact
         uses: actions/upload-artifact@v4
