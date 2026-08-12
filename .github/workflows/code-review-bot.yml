@@ -74,7 +74,7 @@ jobs:
             --post-comments \
             --generate-report \
             --output .review-results/review-report.md \
-            --output-sarif .review-results/review-results.sarif || true
+            --upload-sarif .review-results/review-results.sarif || true
 
       - name: Upload SARIF to GitHub Security tab
         if: always()
