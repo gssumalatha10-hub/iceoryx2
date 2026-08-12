@@ -4,6 +4,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -29,7 +34,14 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-tidy clang cmake build-essential
+          sudo apt-get install -y curl python3-pip clang clang-tidy clang-tools cmake build-essential
+
+      - name: Install Bazel via Bazelisk
+        run: |
+          sudo curl -L -o /usr/local/bin/bazelisk https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+          sudo chmod +x /usr/local/bin/bazelisk
+          sudo ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
+          bazel version || true
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -46,6 +58,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r code-review-bot/code-review-bot/requirements.txt
+
+      - name: Build iceoryx2 with Bazel
+        run: |
+          bazel build //:iceoryx2
+
+      - name: Generate compile_commands.json with CMake
+        run: |
+          cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          if [ -f build/compile_commands.json ]; then
+            cp build/compile_commands.json compile_commands.json
+            echo "Copied compile_commands.json to repository root"
+          else
+            echo "WARNING: compile_commands.json not found in build directory"
+          fi
+          ls -l compile_commands.json 2>/dev/null || echo "File not present"
 
       - name: Run code review orchestrator
         env:
@@ -73,19 +100,32 @@ jobs:
             --post-check \
             --post-comments \
             --generate-report \
-            --output .review-results/review-report.md \
-            --upload-sarif .review-results/review-results.sarif || true
+            --output .review-results/review-report.md || true
 
-      - name: Upload SARIF to GitHub Security tab
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: .review-results/review-results.sarif
-          wait-for-processing: true
-        continue-on-error: true
+      - name: Verify review artifacts exist
+        run: |
+          if [ ! -d .review-results ]; then
+            echo "No .review-results directory found" >&2
+            exit 1
+          fi
+          if ! find .review-results -type f -print -quit >/dev/null; then
+            echo "No artifacts found in .review-results" >&2
+            exit 1
+          fi
+          echo "Found review artifacts:"
+          find .review-results -type f -maxdepth 2 -print
+
+      - name: Package review artifacts
+        run: |
+          if [ ! -d .review-results ]; then
+            echo "No .review-results directory found" >&2
+            exit 1
+          fi
+          tar -czf review-results.tar.gz -C .review-results .
+          ls -l review-results.tar.gz
 
       - name: Upload report artifact
         uses: actions/upload-artifact@v4
         with:
           name: code-review-report
-          path: .review-results/
+          path: review-results.tar.gz
