@@ -1,0 +1,201 @@
+# Code Review Agent Configuration for Eclipse iceoryx
+# This file defines review policies, rule mappings, and severity levels
+
+review_policy:
+  name: "Eclipse iceoryx Code Review Policy"
+  version: "1.0.0"
+  description: "C++ code review with MISRA, AUTOSAR, and project-specific standards"
+  
+  # Minimum severity to fail merge gate (blocker | critical | major | minor | info)
+  merge_gate_threshold: "critical"
+  
+  # Report only new findings in PRs
+  only_new_findings: true
+  
+  # Paths to exclude from review
+  exclude_paths:
+    - "iceoryx_examples/**"
+    - "iceoryx_integrationtest/**"
+    - "*.test.cpp"
+
+analyzers:
+  compiler:
+    enabled: true
+    name: "Clang/GCC Compiler"
+    version: "18.0"
+    warnings:
+      - "-Wall"
+      - "-Wextra"
+      - "-Wpedantic"
+      - "-Wconversion"
+      - "-Wsign-conversion"
+      - "-Wshadow"
+      - "-Wformat=2"
+      - "-Wnull-dereference"
+      - "-Wimplicit-fallthrough"
+
+  clang-tidy:
+    enabled: true
+    name: "clang-tidy"
+    version: "18.0"
+    checks: "all"  # Use .clang-tidy file in iceoryx repo
+
+  clang-analyzer:
+    enabled: true
+    name: "Clang Static Analyzer"
+    version: "18.0"
+
+  clang-format:
+    enabled: true
+    name: "clang-format"
+    version: "18.0"
+    style: "file"  # Use .clang-format file in iceoryx repo
+
+# Rule mapping: tool check → standards
+rule_mappings:
+  # Code style - spacing around operators (HIGHEST PRIORITY)
+  - id: "PROJECT-STYLE-001"
+    tool: "clang-format"
+    check: "formatting"
+    severity: "major"
+    standards:
+      - "project-policy"
+    description: "Code formatting style violation - missing spaces around operators"
+    remediation: "Run clang-format to fix formatting. Example: use 'a != b' not 'a!=b', 'a + b' not 'a+b'"
+
+  - id: "PROJECT-STYLE-002"
+    tool: "clang-tidy"
+    check: "readability-operators-representation"
+    severity: "major"
+    standards:
+      - "project-policy"
+    description: "Missing spaces around binary operators"
+    remediation: "Add spaces around operators. Follow the project's clang-format rules"
+
+  # Unsafe casts and conversions
+  - id: "AUTOSAR-CXX14-CAST-001"
+    tool: "clang-tidy"
+    check: "cppcoreguidelines-pro-type-static-cast-downcast"
+    severity: "major"
+    standards:
+      - "AUTOSAR"
+      - "MISRA-internal"
+    description: "Implicit narrowing casts can lose data"
+    remediation: "Use explicit cast with range check or use wider type"
+
+  - id: "PROJECT-CPP-002"
+    tool: "compiler"
+    pattern: "-Wconversion -Wsign-conversion"
+    severity: "major"
+    standards:
+      - "project-policy"
+    description: "Implicit type conversion without explicit cast"
+    remediation: "Add explicit cast or review logic"
+
+  # Null pointer dereference
+  - id: "AUTOSAR-CXX14-PTR-001"
+    tool: "clang-analyzer"
+    check: "core.NullDereference"
+    severity: "critical"
+    standards:
+      - "AUTOSAR"
+    description: "Potential null pointer dereference"
+    remediation: "Add null check before dereferencing"
+
+  # Memory safety
+  - id: "AUTOSAR-CXX14-MEM-001"
+    tool: "clang-tidy"
+    check: "bugprone-dangling-handle"
+    severity: "critical"
+    standards:
+      - "AUTOSAR"
+    description: "Dangling reference or pointer to temporary"
+    remediation: "Ensure referenced object lifetime is sufficient"
+
+  - id: "PROJECT-MEM-001"
+    tool: "clang-tidy"
+    check: "cppcoreguidelines-no-malloc"
+    severity: "critical"
+    standards:
+      - "project-policy"
+    description: "Project restriction: no dynamic memory (malloc/new)"
+    remediation: "Use static allocation or approved container"
+
+  # Uninitialized variables
+  - id: "AUTOSAR-CXX14-INIT-001"
+    tool: "clang-analyzer"
+    check: "core.UndefinedBinaryOperatorResult"
+    severity: "critical"
+    standards:
+      - "AUTOSAR"
+    description: "Uninitialized variable use"
+    remediation: "Initialize variable before use"
+
+  # Ignored return values
+  - id: "AUTOSAR-CXX14-ERR-001"
+    tool: "clang-tidy"
+    check: "bugprone-unused-return-value"
+    severity: "major"
+    standards:
+      - "AUTOSAR"
+      - "CERT"
+    description: "Ignored return value may hide error"
+    remediation: "Check and handle return value or explicitly cast to void"
+
+  # Logic errors
+  - id: "AUTOSAR-CXX14-LOGIC-001"
+    tool: "compiler"
+    pattern: "-Wparentheses"
+    severity: "major"
+    standards:
+      - "AUTOSAR"
+    description: "Suspicious operator precedence without parentheses"
+    remediation: "Add parentheses to clarify intent"
+
+  - id: "PROJECT-LOGIC-001"
+    tool: "compiler"
+    pattern: "-Wimplicit-fallthrough"
+    severity: "major"
+    standards:
+      - "project-policy"
+    description: "Fall-through in switch statement without comment"
+    remediation: "Add '// fall through' comment or explicit break"
+
+# Suppression patterns: findings to ignore
+suppressions:
+  - pattern: ".*_test\\.cpp"  # Don't review test files
+  - rule_id: "AUTOSAR-CXX14-PTR-001"
+    file: "iceoryx_examples/**"  # Allow examples to have deviations
+  - rule_id: "PROJECT-MEM-001"
+    justification: "pre-approved exception for initialization phase"
+    expiry_date: "2026-12-31"
+
+# Severity and confidence thresholds
+severity_levels:
+  critical:
+    color: "red"
+    priority: 1
+    merge_gate: "fail"
+    report: "inline"
+  major:
+    color: "orange"
+    priority: 2
+    merge_gate: "warning"
+    report: "inline"
+  minor:
+    color: "yellow"
+    priority: 3
+    merge_gate: "info"
+    report: "summary"
+  info:
+    color: "blue"
+    priority: 4
+    merge_gate: "none"
+    report: "summary"
+
+# Quality metrics targets (optional)
+quality_targets:
+  max_new_findings_critical: 0
+  max_new_findings_major: 3
+  min_precision: 0.90
+  max_false_positive_rate: 0.10
