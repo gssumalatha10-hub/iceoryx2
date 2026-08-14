@@ -1,8 +1,23 @@
-name: PR Code Review
+name: AI Review Agent
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [review_requested]
+
+jobs:
+  review:
+    # Optional: Only run if the requested reviewer matches your agent's username
+    if: ${{ github.event.requested_reviewer.login == 'your-review-agent-bot' }}
+    
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Review Agent
+        run: |
+          echo "Starting review for PR #${{ github.event.pull_request.number }}"
+          # Call your review agent script or API here
 
 permissions:
   contents: read
@@ -11,19 +26,35 @@ permissions:
 
 jobs:
   review:
+    # Optional: Only run if the requested reviewer matches your agent's username
+    if: ${{ github.event.requested_reviewer.login == 'your-review-agent-bot' }}
+    
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-      pull-requests: write
-      actions: read
-      security-events: write
-
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Review Agent
+        run: |
+          echo "Starting review for PR #${{ github.event.pull_request.number }}"
+          # Call your review agent script or API here
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Request review from code-review-bot
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              reviewers: ['gssumalatha10-hub']
+            });
 
       - name: Setup git branches
         run: |

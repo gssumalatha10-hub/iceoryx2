@@ -1,0 +1,20 @@
+name: Auto-Request AI Review
+
+on:
+  pull_request:
+    types: [opened, ready_for_review] # Only when PR is first created
+
+jobs:
+  assign-reviewer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request Review from AI Bot
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              reviewers: ['your-review-agent-bot'] # Replace with your AI bot's username
+            });
