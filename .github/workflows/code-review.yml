@@ -1,0 +1,156 @@
+name: AI Review Agent
+
+on:
+  pull_request:
+    types: [review_requested]
+
+jobs:
+  review:
+    # Optional: Only run if the requested reviewer matches your agent's username
+    if: ${{ github.event.requested_reviewer.login == 'your-review-agent-bot' }}
+    
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Review Agent
+        run: |
+          echo "Starting review for PR #${{ github.event.pull_request.number }}"
+          # Call your review agent script or API here
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  review:
+    # Optional: Only run if the requested reviewer matches your agent's username
+    if: ${{ github.event.requested_reviewer.login == 'your-review-agent-bot' }}
+    
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Review Agent
+        run: |
+          echo "Starting review for PR #${{ github.event.pull_request.number }}"
+          # Call your review agent script or API here
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Request review from code-review-bot
+        if: github.event.action == 'opened'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              reviewers: ['gssumalatha10-hub']
+            });
+
+      - name: Setup git branches
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}:${{ github.event.pull_request.base.ref }}
+          git fetch origin ${{ github.event.pull_request.head.ref }}:${{ github.event.pull_request.head.ref }}
+          git branch -a
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl python3-pip clang clang-tidy clang-tools cmake build-essential
+
+      - name: Install Bazel via Bazelisk
+        run: |
+          sudo curl -L -o /usr/local/bin/bazelisk https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-linux-amd64
+          sudo chmod +x /usr/local/bin/bazelisk
+          sudo ln -sf /usr/local/bin/bazelisk /usr/local/bin/bazel
+          bazel version || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r code-review-bot/requirements.txt
+
+      - name: Build iceoryx2 with Bazel
+        run: |
+          bazel build //:iceoryx2
+
+      - name: Generate compile_commands.json with CMake
+        run: |
+          cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+          if [ -f build/compile_commands.json ]; then
+            cp build/compile_commands.json compile_commands.json
+            echo "Copied compile_commands.json to repository root"
+          else
+            echo "WARNING: compile_commands.json not found in build directory"
+          fi
+          ls -l compile_commands.json 2>/dev/null || echo "File not present"
+
+      - name: Run code review orchestrator
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+        run: |
+          mkdir -p .review-results
+          python3 code-review-bot/src/review_orchestrator.py \
+            --repo . \
+            --config code-review-bot/review-config.yaml \
+            --pr-base "${{ github.event.pull_request.base.ref }}" \
+            --pr-head "${{ github.event.pull_request.head.ref }}" \
+            --output .review-results/review-results.json
+
+      - name: Post GitHub report and comments
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_ACTIONS: 'true'
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          python3 code-review-bot/src/github_reporter.py \
+            --results .review-results/review-results.json \
+            --post-check \
+            --post-comments \
+            --generate-report \
+            --output .review-results/review-report.md || true
+
+      - name: Verify review artifacts exist
+        run: |
+          if [ ! -d .review-results ]; then
+            echo "No .review-results directory found" >&2
+            exit 1
+          fi
+          if ! find .review-results -type f -print -quit >/dev/null; then
+            echo "No artifacts found in .review-results" >&2
+            exit 1
+          fi
+          echo "Found review artifacts:"
+          find .review-results -type f -maxdepth 2 -print
+
+      - name: Package review artifacts
+        run: |
+          if [ ! -d .review-results ]; then
+            echo "No .review-results directory found" >&2
+            exit 1
+          fi
+          tar -czf review-results.tar.gz -C .review-results .
+          ls -l review-results.tar.gz
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-review-report
+          path: review-results.tar.gz
